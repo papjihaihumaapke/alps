@@ -1,0 +1,146 @@
+@import "tailwindcss" source(none);
+@source "../src";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+/* ALPS ANNIE LING — brand design system
+ * Functional · Modern · Scientific · Aspirational
+ * Klarheit Grotesk substitute → Inter (clean geometric sans)
+ * Numbers → JetBrains Mono (PP Supply Mono substitute)
+ */
+
+@theme inline {
+  --font-sans: "Inter", "Noto Sans TC", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+
+  --radius-sm: 0px;
+  --radius-md: 0px;
+  --radius-lg: 0px;
+  --radius-xl: 0px;
+  --radius-2xl: 0px;
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-ring-offset-background: var(--background);
+
+  --color-brand-red: var(--brand-red);
+  --color-brand-black: var(--brand-black);
+  --color-brand-offwhite: var(--brand-offwhite);
+  --color-brand-light: var(--brand-light);
+  --color-brand-mid: var(--brand-mid);
+
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+}
+
+:root {
+  --radius: 0px;
+
+  /* ALPS palette */
+  --brand-red: oklch(0.628 0.224 18);          /* #ee2d4d */
+  --brand-black: oklch(0.12 0 0);              /* #030303 */
+  --brand-offwhite: oklch(0.949 0 0);          /* #ededee */
+  --brand-light: oklch(0.964 0 0);             /* #f3f3f2 */
+  --brand-mid: oklch(0.682 0 0);               /* #9c9b9b */
+
+  --background: var(--brand-offwhite);
+  --foreground: var(--brand-black);
+  --card: oklch(1 0 0);
+  --card-foreground: var(--brand-black);
+  --popover: oklch(1 0 0);
+  --popover-foreground: var(--brand-black);
+  --primary: var(--brand-red);
+  --primary-foreground: oklch(1 0 0);
+  --secondary: var(--brand-light);
+  --secondary-foreground: var(--brand-black);
+  --muted: var(--brand-light);
+  --muted-foreground: var(--brand-mid);
+  --accent: var(--brand-red);
+  --accent-foreground: oklch(1 0 0);
+  --destructive: oklch(0.577 0.245 27.325);
+  --destructive-foreground: oklch(1 0 0);
+  --border: oklch(0.9 0 0);
+  --input: oklch(0.9 0 0);
+  --ring: var(--brand-red);
+
+  --sidebar: oklch(1 0 0);
+  --sidebar-foreground: var(--brand-black);
+  --sidebar-primary: var(--brand-red);
+  --sidebar-primary-foreground: oklch(1 0 0);
+  --sidebar-accent: var(--brand-light);
+  --sidebar-accent-foreground: var(--brand-black);
+  --sidebar-border: oklch(0.9 0 0);
+  --sidebar-ring: var(--brand-red);
+}
+
+@layer base {
+  * {
+    border-color: var(--color-border);
+  }
+
+  html {
+    -webkit-font-smoothing: antialiased;
+  }
+
+  body {
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+    font-family: var(--font-sans);
+    font-feature-settings: "ss01", "cv11";
+  }
+
+  /* All text lowercase except ALPS — enforce visually via utility */
+  .lowercase-brand {
+    text-transform: lowercase;
+  }
+
+  .num {
+    font-family: var(--font-mono);
+    font-feature-settings: "tnum";
+    letter-spacing: -0.01em;
+  }
+
+  /* underline-on-hover link */
+  .link-red {
+    position: relative;
+    display: inline-block;
+  }
+  .link-red::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    bottom: -2px;
+    height: 1px;
+    width: 0;
+    background: var(--brand-red);
+    transition: width 220ms ease;
+  }
+  .link-red:hover::after,
+  .link-red[data-status="active"]::after {
+    width: 100%;
+  }
+}
