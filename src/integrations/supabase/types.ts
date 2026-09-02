@@ -32,6 +32,42 @@ export type Database = {
         }
         Relationships: []
       }
+      milestones: {
+        Row: {
+          body: string | null
+          created_at: string
+          hidden: boolean
+          id: string
+          image_urls: string[]
+          link_url: string | null
+          occurred_on: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          body?: string | null
+          created_at?: string
+          hidden?: boolean
+          id?: string
+          image_urls?: string[]
+          link_url?: string | null
+          occurred_on?: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          body?: string | null
+          created_at?: string
+          hidden?: boolean
+          id?: string
+          image_urls?: string[]
+          link_url?: string | null
+          occurred_on?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       order_items: {
         Row: {
           color: string | null
@@ -173,6 +209,7 @@ export type Database = {
           hidden: boolean
           id: string
           image_url: string | null
+          image_urls: string[]
           name: string
           price_cad: number
           price_hkd: number
@@ -191,6 +228,7 @@ export type Database = {
           hidden?: boolean
           id?: string
           image_url?: string | null
+          image_urls?: string[]
           name: string
           price_cad?: number
           price_hkd?: number
@@ -209,6 +247,7 @@ export type Database = {
           hidden?: boolean
           id?: string
           image_url?: string | null
+          image_urls?: string[]
           name?: string
           price_cad?: number
           price_hkd?: number

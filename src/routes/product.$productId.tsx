@@ -8,6 +8,7 @@ import {
   productGallery,
 } from "@/lib/accessory-images";
 import { colorSwatch } from "@/lib/color-swatches";
+import { supabase } from "@/integrations/supabase/client";
 import { featureIcon } from "@/lib/feature-icons";
 import { useCart, buildCartItem } from "@/lib/cart";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
@@ -46,13 +47,35 @@ function ProductPage() {
   const [qty, setQty] = useState(1);
   const [openFeature, setOpenFeature] = useState<string | null>(null);
 
-  const gallery = useMemo(
-    () => productGallery(product.id, product.colors),
-    [product.id, product.colors],
-  );
+  // Extra gallery images managed in the admin panel, appended after the
+  // built-in per-colour shots.
+  const [dbImages, setDbImages] = useState<string[]>([]);
+  useEffect(() => {
+    let cancelled = false;
+    supabase
+      .from("products")
+      .select("image_urls")
+      .eq("slug", product.id)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (!cancelled) setDbImages((data?.image_urls ?? []).filter(Boolean));
+      });
+    return () => { cancelled = true; };
+  }, [product.id]);
+
+  const gallery = useMemo(() => {
+    const base = productGallery(product.id, product.colors);
+    return [...base, ...dbImages.filter((u) => !base.includes(u))];
+  }, [product.id, product.colors, dbImages]);
   const [activeImage, setActiveImage] = useState<string | undefined>(
     () => productImageForColor(product.id, product.colors[0]) ?? gallery[0],
   );
+
+  // Fall back to the first gallery image once admin images arrive for a
+  // product that ships with no local artwork.
+  useEffect(() => {
+    if (!activeImage && gallery.length) setActiveImage(gallery[0]);
+  }, [gallery, activeImage]);
 
   // Sync main image when the selected colour changes.
   useEffect(() => {

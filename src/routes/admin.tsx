@@ -63,7 +63,7 @@ function AdminPage() {
   return (
     <Shell>
       <div className="px-6 lg:px-10 py-10">
-        <div className="flex items-center justify-between mb-8">
+        <div className="flex items-center justify-between flex-wrap gap-4 mb-8">
           <h1 className="text-3xl">Admin Panel</h1>
           <div className="flex items-center gap-4 text-xs text-muted-foreground">
             <span>{user.email}</span>
@@ -71,8 +71,9 @@ function AdminPage() {
           </div>
         </div>
         <Tabs defaultValue="products">
-          <TabsList>
+          <TabsList className="flex flex-wrap h-auto">
             <TabsTrigger value="products">Products</TabsTrigger>
+            <TabsTrigger value="recognitions">Recognitions</TabsTrigger>
             <TabsTrigger value="orders">Orders</TabsTrigger>
             <TabsTrigger value="customers">Customers</TabsTrigger>
             <TabsTrigger value="promos">Promo Codes</TabsTrigger>
@@ -80,6 +81,7 @@ function AdminPage() {
             <TabsTrigger value="admins">Admins</TabsTrigger>
           </TabsList>
           <TabsContent value="products"><ProductsTab /></TabsContent>
+          <TabsContent value="recognitions"><MilestonesTab /></TabsContent>
           <TabsContent value="orders"><OrdersTab /></TabsContent>
           <TabsContent value="customers"><CustomersTab /></TabsContent>
           <TabsContent value="promos"><PromosTab /></TabsContent>
@@ -134,7 +136,7 @@ function AdminsTab() {
         <Button type="submit" disabled={busy}>Grant</Button>
       </form>
       <p className="text-xs text-muted-foreground">User must have signed up first.</p>
-      <table className="w-full text-sm">
+      <table className="w-full text-sm block overflow-x-auto whitespace-nowrap">
         <thead><tr className="text-left text-muted-foreground border-b border-border">
           <th className="py-2">Email</th><th>Granted</th><th></th>
         </tr></thead>
@@ -159,13 +161,13 @@ type Product = {
   id?: string; slug: string; name: string; category: string;
   description: string | null; price_cad: number; price_hkd: number;
   colors: string[]; sizes: string[]; features: string[]; tags: string[];
-  stock: number; hidden: boolean; image_url: string | null;
+  stock: number; hidden: boolean; image_url: string | null; image_urls: string[];
 };
 
 const blankProduct: Product = {
   slug: "", name: "", category: "innovation", description: "",
   price_cad: 0, price_hkd: 0, colors: [], sizes: [], features: [], tags: [],
-  stock: 0, hidden: false, image_url: "",
+  stock: 0, hidden: false, image_url: "", image_urls: [],
 };
 
 function ProductsTab() {
@@ -174,7 +176,7 @@ function ProductsTab() {
 
   const load = async () => {
     const { data } = await supabase.from("products").select("*").order("created_at", { ascending: false });
-    setRows((data ?? []) as Product[]);
+    setRows((data ?? []).map((p: any) => ({ ...p, image_urls: p.image_urls ?? [] })) as Product[]);
   };
   useEffect(() => { load(); }, []);
 
@@ -214,6 +216,7 @@ function ProductsTab() {
         stock: 0,
         hidden: false,
         image_url: productImage(p.id) ?? null,
+        image_urls: [productImage(p.id)].filter(Boolean) as string[],
       }));
       const { error } = await supabase.from("products").upsert(payload, { onConflict: "slug" });
       if (error) throw error;
@@ -240,7 +243,7 @@ function ProductsTab() {
 
       {editing && <ProductEditor product={editing} onChange={setEditing} onSave={save} onCancel={() => setEditing(null)} />}
 
-      <table className="w-full text-sm border-t border-border">
+      <table className="w-full text-sm border-t border-border block overflow-x-auto whitespace-nowrap">
         <thead><tr className="text-left text-muted-foreground">
           <th className="py-2">Slug</th><th>Name</th><th>Category</th><th>Stock</th><th>CAD</th><th>HKD</th><th>Hidden</th><th></th>
         </tr></thead>
@@ -272,7 +275,7 @@ function ProductEditor({ product, onChange, onSave, onCancel }:{
   return (
     <div className="border border-border p-6 bg-card space-y-4">
       <h3 className="text-lg">{product.id ? "Edit" : "New"} product</h3>
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <Field label="Slug"><Input value={product.slug} onChange={e => set("slug", e.target.value)} /></Field>
         <Field label="Name"><Input value={product.name} onChange={e => set("name", e.target.value)} /></Field>
         <Field label="Category">
@@ -297,6 +300,11 @@ function ProductEditor({ product, onChange, onSave, onCancel }:{
         <Field label="Tags (comma-sep)"><Input value={product.tags.join(", ")} onChange={e => set("tags", arr(e.target.value))} /></Field>
       </div>
       <Field label="Description"><Textarea rows={4} value={product.description ?? ""} onChange={e => set("description", e.target.value)} /></Field>
+      <ImageUrlsField
+        label="Gallery images (scrolls in order)"
+        urls={product.image_urls}
+        onChange={v => set("image_urls", v)}
+      />
       <div className="flex gap-3">
         <Button onClick={onSave}>Save</Button>
         <Button variant="outline" onClick={onCancel}>Cancel</Button>
@@ -307,6 +315,139 @@ function ProductEditor({ product, onChange, onSave, onCancel }:{
 
 function Field({ label, children }:{ label: string; children: React.ReactNode }) {
   return <div><Label className="text-xs text-muted-foreground mb-1 block">{label}</Label>{children}</div>;
+}
+
+
+/* ----------------- SHARED: MULTI-IMAGE EDITOR ----------------- */
+function ImageUrlsField({ label, urls, onChange }:{
+  label: string; urls: string[]; onChange: (v: string[]) => void;
+}) {
+  const setAt = (i: number, v: string) => onChange(urls.map((u, j) => (j === i ? v : u)));
+  const removeAt = (i: number) => onChange(urls.filter((_, j) => j !== i));
+  const move = (i: number, delta: number) => {
+    const j = i + delta;
+    if (j < 0 || j >= urls.length) return;
+    const next = [...urls];
+    [next[i], next[j]] = [next[j], next[i]];
+    onChange(next);
+  };
+
+  return (
+    <div>
+      <Label className="text-xs text-muted-foreground mb-1 block">{label}</Label>
+      <div className="space-y-2">
+        {urls.map((url, i) => (
+          <div key={i} className="flex items-center gap-2">
+            <div className="h-10 w-10 shrink-0 bg-muted overflow-hidden">
+              {url && <img src={url} alt="" className="h-full w-full object-cover" />}
+            </div>
+            <Input value={url} onChange={e => setAt(i, e.target.value)} placeholder="https://…" />
+            <button type="button" onClick={() => move(i, -1)} disabled={i === 0} className="link-red disabled:opacity-30 text-xs">up</button>
+            <button type="button" onClick={() => move(i, 1)} disabled={i === urls.length - 1} className="link-red disabled:opacity-30 text-xs">down</button>
+            <button type="button" onClick={() => removeAt(i)} className="link-red text-xs">remove</button>
+          </div>
+        ))}
+        <Button type="button" variant="outline" size="sm" onClick={() => onChange([...urls, ""])}>+ Add image</Button>
+      </div>
+    </div>
+  );
+}
+
+/* ----------------- RECOGNITIONS (MILESTONES) ----------------- */
+type Milestone = {
+  id?: string; title: string; body: string | null; occurred_on: string;
+  link_url: string | null; image_urls: string[]; hidden: boolean;
+};
+
+const blankMilestone = (): Milestone => ({
+  title: "", body: "", occurred_on: new Date().toISOString().slice(0, 10),
+  link_url: "", image_urls: [], hidden: false,
+});
+
+function MilestonesTab() {
+  const [rows, setRows] = useState<Milestone[]>([]);
+  const [editing, setEditing] = useState<Milestone | null>(null);
+
+  // Newest first — matches the public /my-journey ordering.
+  const load = async () => {
+    const { data, error } = await supabase.from("milestones").select("*")
+      .order("occurred_on", { ascending: false })
+      .order("created_at", { ascending: false });
+    if (error) return toast.error(error.message);
+    setRows((data ?? []).map((m: any) => ({ ...m, image_urls: m.image_urls ?? [] })) as Milestone[]);
+  };
+  useEffect(() => { load(); }, []);
+
+  const save = async () => {
+    if (!editing) return;
+    if (!editing.title.trim()) return toast.error("Title is required");
+    const payload = {
+      ...editing,
+      link_url: editing.link_url?.trim() || null,
+      body: editing.body?.trim() || null,
+      image_urls: editing.image_urls.filter(u => u.trim()),
+    };
+    const { error } = payload.id
+      ? await supabase.from("milestones").update(payload).eq("id", payload.id)
+      : await supabase.from("milestones").insert(payload);
+    if (error) return toast.error(error.message);
+    toast.success("Saved"); setEditing(null); load();
+  };
+
+  const remove = async (id: string) => {
+    if (!confirm("Delete this recognition?")) return;
+    const { error } = await supabase.from("milestones").delete().eq("id", id);
+    if (error) return toast.error(error.message);
+    toast.success("Deleted"); load();
+  };
+
+  return (
+    <div className="py-6 space-y-6">
+      <div className="flex justify-between items-center">
+        <h2 className="text-lg">{rows.length} recognitions · newest first</h2>
+        <Button onClick={() => setEditing(blankMilestone())}>+ New Recognition</Button>
+      </div>
+
+      {editing && (
+        <div className="border border-border p-6 bg-card space-y-4">
+          <h3 className="text-lg">{editing.id ? "Edit" : "New"} recognition</h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Field label="Title"><Input value={editing.title} onChange={e => setEditing({ ...editing, title: e.target.value })} /></Field>
+            <Field label="Date"><Input type="date" value={editing.occurred_on} onChange={e => setEditing({ ...editing, occurred_on: e.target.value })} /></Field>
+            <Field label="Link URL (optional)"><Input value={editing.link_url ?? ""} onChange={e => setEditing({ ...editing, link_url: e.target.value })} /></Field>
+            <Field label="Hidden"><div className="flex h-9 items-center"><Switch checked={editing.hidden} onCheckedChange={v => setEditing({ ...editing, hidden: v })} /></div></Field>
+          </div>
+          <Field label="Body"><Textarea rows={5} value={editing.body ?? ""} onChange={e => setEditing({ ...editing, body: e.target.value })} /></Field>
+          <ImageUrlsField
+            label="Gallery images (scrolls in order)"
+            urls={editing.image_urls}
+            onChange={v => setEditing({ ...editing, image_urls: v })}
+          />
+          <div className="flex gap-3"><Button onClick={save}>Save</Button><Button variant="outline" onClick={() => setEditing(null)}>Cancel</Button></div>
+        </div>
+      )}
+
+      <table className="w-full text-sm border-t border-border block overflow-x-auto whitespace-nowrap">
+        <thead><tr className="text-left text-muted-foreground">
+          <th className="py-2">Date</th><th>Title</th><th>Images</th><th>Hidden</th><th></th>
+        </tr></thead>
+        <tbody>
+          {rows.map(m => (
+            <tr key={m.id} className="border-t border-border">
+              <td className="py-2 num text-xs">{m.occurred_on}</td>
+              <td>{m.title}</td>
+              <td className="num">{m.image_urls.length}</td>
+              <td>{m.hidden ? "yes" : ""}</td>
+              <td className="text-right">
+                <button onClick={() => setEditing(m)} className="link-red mr-3">edit</button>
+                <button onClick={() => remove(m.id!)} className="link-red">delete</button>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
 }
 
 /* ----------------- ORDERS ----------------- */
@@ -324,7 +465,7 @@ function OrdersTab() {
   };
   return (
     <div className="py-6">
-      <table className="w-full text-sm">
+      <table className="w-full text-sm block overflow-x-auto whitespace-nowrap">
         <thead><tr className="text-left text-muted-foreground border-b border-border">
           <th className="py-2">Order #</th><th>Date</th><th>Customer</th><th>Total</th><th>Status</th><th></th>
         </tr></thead>
@@ -358,7 +499,7 @@ function CustomersTab() {
   }, []);
   return (
     <div className="py-6">
-      <table className="w-full text-sm">
+      <table className="w-full text-sm block overflow-x-auto whitespace-nowrap">
         <thead><tr className="text-left text-muted-foreground border-b border-border">
           <th className="py-2">Name</th><th>Mobile</th><th>Newsletter</th><th>Joined</th>
         </tr></thead>
@@ -412,7 +553,7 @@ function PromosTab() {
       <div className="flex justify-between"><h2>{rows.length} codes</h2><Button onClick={() => setEditing({ ...blankPromo })}>+ New Code</Button></div>
       {editing && (
         <div className="border border-border p-6 bg-card space-y-4">
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Field label="Code"><Input value={editing.code} onChange={e => setEditing({ ...editing, code: e.target.value.toUpperCase() })} /></Field>
             <Field label="Type">
               <select className="w-full h-9 border border-input bg-background px-3 text-sm" value={editing.discount_type} onChange={e => setEditing({ ...editing, discount_type: e.target.value })}>
@@ -429,7 +570,7 @@ function PromosTab() {
           <div className="flex gap-3"><Button onClick={save}>Save</Button><Button variant="outline" onClick={() => setEditing(null)}>Cancel</Button></div>
         </div>
       )}
-      <table className="w-full text-sm">
+      <table className="w-full text-sm block overflow-x-auto whitespace-nowrap">
         <thead><tr className="text-left text-muted-foreground border-b border-border">
           <th className="py-2">Code</th><th>Type</th><th>Amount</th><th>Used</th><th>Active</th><th></th>
         </tr></thead>
@@ -467,7 +608,7 @@ function NewsletterTab() {
   return (
     <div className="py-6 space-y-4">
       <div className="flex justify-between"><h2>{rows.length} subscribers</h2><Button onClick={csv} variant="outline">Export CSV</Button></div>
-      <table className="w-full text-sm">
+      <table className="w-full text-sm block overflow-x-auto whitespace-nowrap">
         <thead><tr className="text-left text-muted-foreground border-b border-border"><th className="py-2">Email</th><th>Subscribed</th></tr></thead>
         <tbody>
           {rows.map(r => (
