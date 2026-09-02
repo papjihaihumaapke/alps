@@ -110,14 +110,14 @@ export const Route = createFileRoute("/press")({
                 href={p.href}
                 target="_blank"
                 rel="noreferrer"
-                className="py-6 grid grid-cols-12 gap-4 items-baseline hover:bg-muted/40 px-2 transition group"
+                className="py-6 grid grid-cols-12 gap-x-4 gap-y-1 sm:gap-4 items-baseline hover:bg-muted/40 px-2 transition group"
               >
-                <span className="num col-span-2 text-primary text-sm">{p.year}</span>
-                <span className="col-span-4 text-sm">{p.outlet}</span>
-                <span className="col-span-5 text-sm text-foreground/70 group-hover:text-foreground">
+                <span className="num col-span-3 sm:col-span-2 text-primary text-sm">{p.year}</span>
+                <span className="col-span-9 sm:col-span-4 text-sm">{p.outlet}</span>
+                <span className="col-span-12 sm:col-span-5 text-sm text-foreground/70 group-hover:text-foreground">
                   {p.title}
                 </span>
-                <ExternalLink className="col-span-1 h-3.5 w-3.5 text-foreground/40 group-hover:text-primary justify-self-end" />
+                <ExternalLink className="hidden sm:block col-span-1 h-3.5 w-3.5 text-foreground/40 group-hover:text-primary justify-self-end" />
               </a>
             </li>
           ))}
@@ -128,13 +128,13 @@ export const Route = createFileRoute("/press")({
           {AWARDS.map((a, i) => {
             const Row = (
               <>
-                <span className="num col-span-2 text-primary text-sm">{a.year}</span>
-                <span className="col-span-4 text-sm">{a.outlet}</span>
-                <span className="col-span-5 text-sm text-foreground/70">{a.title}</span>
+                <span className="num col-span-3 sm:col-span-2 text-primary text-sm">{a.year}</span>
+                <span className="col-span-9 sm:col-span-4 text-sm">{a.outlet}</span>
+                <span className="col-span-12 sm:col-span-5 text-sm text-foreground/70">{a.title}</span>
                 {"href" in a && a.href ? (
-                  <ExternalLink className="col-span-1 h-3.5 w-3.5 text-foreground/40 justify-self-end" />
+                  <ExternalLink className="hidden sm:block col-span-1 h-3.5 w-3.5 text-foreground/40 justify-self-end" />
                 ) : (
-                  <span className="col-span-1" />
+                  <span className="hidden sm:block col-span-1" />
                 )}
               </>
             );
@@ -145,12 +145,12 @@ export const Route = createFileRoute("/press")({
                     href={a.href}
                     target="_blank"
                     rel="noreferrer"
-                    className="py-6 grid grid-cols-12 gap-4 items-baseline hover:bg-muted/40 px-2 transition"
+                    className="py-6 grid grid-cols-12 gap-x-4 gap-y-1 sm:gap-4 items-baseline hover:bg-muted/40 px-2 transition"
                   >
                     {Row}
                   </a>
                 ) : (
-                  <div className="py-6 grid grid-cols-12 gap-4 items-baseline px-2">{Row}</div>
+                  <div className="py-6 grid grid-cols-12 gap-x-4 gap-y-1 sm:gap-4 items-baseline px-2">{Row}</div>
                 )}
               </li>
             );

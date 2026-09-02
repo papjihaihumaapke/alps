@@ -12,8 +12,8 @@ const AWARDS = [
 
 export function Footer() {
   return (
-    <footer className="bg-background text-foreground mt-24 border-t border-border">
-      <div className="mx-auto max-w-[1760px] px-6 lg:px-10 py-14 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-10 text-[12px]">
+    <footer className="bg-background text-foreground mt-16 border-t border-border">
+      <div className="mx-auto max-w-[1760px] px-6 lg:px-10 py-10 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-x-10 gap-y-8 text-[12px]">
         <Col title="asia miles">
           <a href={SOCIALS.asiaMiles} target="_blank" rel="noreferrer" className="text-foreground/80 hover:text-primary leading-snug">
             light fresh® technology CABAS 220 shoulder bag
@@ -32,9 +32,10 @@ export function Footer() {
 
         <Col title="features">
           <div className="grid gap-1.5">
-            {FEATURES.slice(0, 22).map((f) => (
+            {FEATURES.slice(0, 8).map((f) => (
               <span key={f.key} className="text-foreground/80 truncate">{f.name}</span>
             ))}
+            <Link to="/innovation" className="link-red mt-2 inline-block">explore technology →</Link>
           </div>
         </Col>
 
@@ -83,15 +84,15 @@ export function Footer() {
 
       <div className="bg-primary text-primary-foreground">
         <div className="mx-auto max-w-[1760px] px-6 lg:px-10 py-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 text-[11px]">
-          <div className="flex items-center gap-4">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 w-full md:w-auto">
             <span className="tracking-[0.2em] uppercase">stay connected</span>
-            <form className="flex items-center" onSubmit={(e) => e.preventDefault()}>
+            <form className="flex items-center w-full sm:w-auto" onSubmit={(e) => e.preventDefault()}>
               <input
                 type="email"
                 placeholder="hello@youremail.com"
-                className="bg-white/15 placeholder:text-white/70 text-white px-3 py-1.5 text-[11px] w-64 focus:outline-none"
+                className="bg-white/15 placeholder:text-white/70 text-white px-3 py-1.5 text-[11px] w-full sm:w-64 focus:outline-none"
               />
-              <button className="bg-white/20 hover:bg-white/30 text-white px-4 py-1.5 text-[11px] tracking-wide border-l border-white/20">
+              <button className="bg-white/20 hover:bg-white/30 text-white px-4 py-1.5 text-[11px] tracking-wide border-l border-white/20 shrink-0">
                 subscribe
               </button>
             </form>

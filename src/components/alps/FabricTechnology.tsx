@@ -106,7 +106,7 @@ export function FabricTechnology() {
           className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-6"
           onClick={() => setActive(null)}
         >
-          <div className="bg-card max-w-lg w-full p-8 relative" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-card max-w-lg w-full p-6 md:p-8 relative max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
             <button
               aria-label="close"
               onClick={() => setActive(null)}
