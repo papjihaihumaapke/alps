@@ -40,11 +40,13 @@ export type Database = {
           id: string
           image_urls: string[]
           link_url: string | null
+          links: Json
           occurred_on: string
           section: string
           tags: string[]
           title: string
           updated_at: string
+          video_urls: string[]
         }
         Insert: {
           body?: string | null
@@ -53,11 +55,13 @@ export type Database = {
           id?: string
           image_urls?: string[]
           link_url?: string | null
+          links?: Json
           occurred_on?: string
           section?: string
           tags?: string[]
           title: string
           updated_at?: string
+          video_urls?: string[]
         }
         Update: {
           body?: string | null
@@ -66,11 +70,13 @@ export type Database = {
           id?: string
           image_urls?: string[]
           link_url?: string | null
+          links?: Json
           occurred_on?: string
           section?: string
           tags?: string[]
           title?: string
           updated_at?: string
+          video_urls?: string[]
         }
         Relationships: []
       }

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { Shell } from "@/components/alps/Shell";
 import { useAuth } from "@/lib/auth";
@@ -15,7 +15,7 @@ import { listAdmins, grantAdminByEmail, revokeAdmin } from "@/lib/admin.function
 import { PRODUCTS } from "@/lib/alps-data";
 import { productImage } from "@/lib/accessory-images";
 import { SEASON_TAGS, DEMOGRAPHIC_TAGS } from "@/lib/categorisation";
-import type { EntrySection } from "@/components/alps/EntryFeed";
+import type { EntryLink, EntrySection } from "@/components/alps/EntryFeed";
 
 export const Route = createFileRoute("/admin")({ component: AdminPage });
 
@@ -354,7 +354,7 @@ function TagsField({ tags, onChange }:{ tags: string[]; onChange: (v: string[]) 
 const IMAGE_BUCKET = "site-images";
 
 async function uploadImage(file: File): Promise<string> {
-  const ext = file.name.split(".").pop()?.toLowerCase() || "jpg";
+  const ext = file.name.split(".").pop()?.toLowerCase() || "bin";
   const path = `uploads/${crypto.randomUUID()}.${ext}`;
   const { error } = await supabase.storage.from(IMAGE_BUCKET).upload(path, file, {
     contentType: file.type || undefined,
@@ -364,9 +364,10 @@ async function uploadImage(file: File): Promise<string> {
   return supabase.storage.from(IMAGE_BUCKET).getPublicUrl(path).data.publicUrl;
 }
 
-function ImageUrlsField({ label, urls, onChange }:{
-  label: string; urls: string[]; onChange: (v: string[]) => void;
+function ImageUrlsField({ label, urls, onChange, kind = "image" }:{
+  label: string; urls: string[]; onChange: (v: string[]) => void; kind?: "image" | "video";
 }) {
+  const noun = kind === "video" ? "video" : "image";
   const setAt = (i: number, v: string) => onChange(urls.map((u, j) => (j === i ? v : u)));
   const removeAt = (i: number) => onChange(urls.filter((_, j) => j !== i));
   const move = (i: number, delta: number) => {
@@ -384,7 +385,7 @@ function ImageUrlsField({ label, urls, onChange }:{
     const added: string[] = [];
     try {
       for (const f of Array.from(files)) added.push(await uploadImage(f));
-      toast.success(`Uploaded ${added.length} image${added.length === 1 ? "" : "s"} — remember to Save`);
+      toast.success(`Uploaded ${added.length} ${noun}${added.length === 1 ? "" : "s"} — remember to Save`);
     } catch (e: any) {
       toast.error(e.message ?? "Upload failed");
     } finally {
@@ -400,9 +401,10 @@ function ImageUrlsField({ label, urls, onChange }:{
         {urls.map((url, i) => (
           <div key={i} className="flex items-center gap-2">
             <div className="h-10 w-10 shrink-0 bg-muted overflow-hidden">
-              {url && <img src={url} alt="" className="h-full w-full object-cover" />}
+              {url && kind === "image" && <img src={url} alt="" className="h-full w-full object-cover" />}
+              {url && kind === "video" && <span className="h-full w-full flex items-center justify-center text-[10px] text-muted-foreground">▶</span>}
             </div>
-            <Input value={url} onChange={e => setAt(i, e.target.value)} placeholder="https://…" />
+            <Input value={url} onChange={e => setAt(i, e.target.value)} placeholder={kind === "video" ? "YouTube / Vimeo link or video file URL" : "https://…"} />
             <button type="button" onClick={() => move(i, -1)} disabled={i === 0} className="link-red disabled:opacity-30 text-xs">up</button>
             <button type="button" onClick={() => move(i, 1)} disabled={i === urls.length - 1} className="link-red disabled:opacity-30 text-xs">down</button>
             <button type="button" onClick={() => removeAt(i)} className="link-red text-xs">remove</button>
@@ -411,13 +413,33 @@ function ImageUrlsField({ label, urls, onChange }:{
         <div className="flex flex-wrap items-center gap-2">
           <Button type="button" variant="outline" size="sm" disabled={uploading} asChild>
             <label className="cursor-pointer">
-              {uploading ? "Uploading…" : "Upload images"}
-              <input type="file" accept="image/*" multiple className="sr-only" disabled={uploading}
+              {uploading ? "Uploading…" : `Upload ${noun}s`}
+              <input type="file" accept={`${noun}/*`} multiple className="sr-only" disabled={uploading}
                 onChange={e => { onFiles(e.target.files); e.target.value = ""; }} />
             </label>
           </Button>
-          <Button type="button" variant="ghost" size="sm" onClick={() => onChange([...urls, ""])}>+ Add by URL</Button>
+          <Button type="button" variant="ghost" size="sm" onClick={() => onChange([...urls, ""])}>{kind === "video" ? "+ Add YouTube / Vimeo link" : "+ Add by URL"}</Button>
         </div>
+      </div>
+    </div>
+  );
+}
+
+/* ----------------- SHARED: LINKS EDITOR ----------------- */
+function LinksField({ links, onChange }:{ links: EntryLink[]; onChange: (v: EntryLink[]) => void }) {
+  const setAt = (i: number, patch: Partial<EntryLink>) => onChange(links.map((l, j) => (j === i ? { ...l, ...patch } : l)));
+  return (
+    <div>
+      <Label className="text-xs text-muted-foreground mb-1 block">Links</Label>
+      <div className="space-y-2">
+        {links.map((l, i) => (
+          <div key={i} className="flex flex-col sm:flex-row sm:items-center gap-2">
+            <Input className="sm:w-56" value={l.label} onChange={e => setAt(i, { label: e.target.value })} placeholder="Label (e.g. read the article)" />
+            <Input value={l.url} onChange={e => setAt(i, { url: e.target.value })} placeholder="https://…" />
+            <button type="button" onClick={() => onChange(links.filter((_, j) => j !== i))} className="link-red text-xs self-start sm:self-auto">remove</button>
+          </div>
+        ))}
+        <Button type="button" variant="outline" size="sm" onClick={() => onChange([...links, { label: "", url: "" }])}>+ Add link</Button>
       </div>
     </div>
   );
@@ -427,12 +449,12 @@ function ImageUrlsField({ label, urls, onChange }:{
 type Milestone = {
   id?: string; title: string; body: string | null; occurred_on: string;
   link_url: string | null; image_urls: string[]; hidden: boolean;
-  section: EntrySection; tags: string[];
+  section: EntrySection; tags: string[]; links: EntryLink[]; video_urls: string[];
 };
 
 const blankMilestone = (section: EntrySection): Milestone => ({
   title: "", body: "", occurred_on: new Date().toISOString().slice(0, 10),
-  link_url: "", image_urls: [], hidden: false, section, tags: [],
+  link_url: null, image_urls: [], hidden: false, section, tags: [], links: [], video_urls: [],
 });
 
 const SECTION_NOUN: Record<EntrySection, { one: string; many: string; page: string }> = {
@@ -444,6 +466,14 @@ function MilestonesTab({ section }: { section: EntrySection }) {
   const noun = SECTION_NOUN[section];
   const [rows, setRows] = useState<Milestone[]>([]);
   const [editing, setEditing] = useState<Milestone | null>(null);
+  const editorRef = useRef<HTMLDivElement>(null);
+
+  // Bring the editor into view whenever an entry is opened.
+  const [openCount, setOpenCount] = useState(0);
+  const open = (m: Milestone) => { setEditing(m); setOpenCount(c => c + 1); };
+  useEffect(() => {
+    if (openCount) editorRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [openCount]);
 
   // Newest first — matches the public page ordering.
   const load = async () => {
@@ -452,7 +482,14 @@ function MilestonesTab({ section }: { section: EntrySection }) {
       .order("occurred_on", { ascending: false })
       .order("created_at", { ascending: false });
     if (error) return toast.error(error.message);
-    setRows((data ?? []).map((m: any) => ({ ...m, image_urls: m.image_urls ?? [], tags: m.tags ?? [] })) as Milestone[]);
+    setRows((data ?? []).map((m: any) => ({
+      ...m,
+      image_urls: m.image_urls ?? [],
+      video_urls: m.video_urls ?? [],
+      tags: m.tags ?? [],
+      // Older rows kept a single link_url; show it as the first link.
+      links: m.links?.length ? m.links : m.link_url ? [{ label: "", url: m.link_url }] : [],
+    })) as Milestone[]);
   };
   useEffect(() => { load(); }, [section]);
 
@@ -461,9 +498,13 @@ function MilestonesTab({ section }: { section: EntrySection }) {
     if (!editing.title.trim()) return toast.error("Title is required");
     const payload = {
       ...editing,
-      link_url: editing.link_url?.trim() || null,
+      link_url: null,
       body: editing.body?.trim() || null,
       image_urls: editing.image_urls.filter(u => u.trim()),
+      video_urls: editing.video_urls.filter(u => u.trim()),
+      links: editing.links
+        .map(l => ({ label: l.label.trim(), url: l.url.trim() }))
+        .filter(l => l.url),
     };
     const { error } = payload.id
       ? await supabase.from("milestones").update(payload).eq("id", payload.id)
@@ -483,16 +524,19 @@ function MilestonesTab({ section }: { section: EntrySection }) {
     <div className="py-6 space-y-6">
       <div className="flex justify-between items-center">
         <h2 className="text-lg">{rows.length} {noun.many} · newest first on {noun.page}</h2>
-        <Button onClick={() => setEditing(blankMilestone(section))}>+ New {noun.one}</Button>
+        <Button onClick={() => open(blankMilestone(section))}>+ New {noun.one}</Button>
       </div>
 
       {editing && (
-        <div className="border border-border p-6 bg-card space-y-4">
+        <div ref={editorRef} className="border border-border p-6 bg-card space-y-4 scroll-mt-6">
           <h3 className="text-lg">{editing.id ? "Edit" : "New"} {noun.one}</h3>
+          <p className="text-xs text-muted-foreground">
+            Entries are ordered by date, newest at the top. To add older posts (e.g. from school days), just set their
+            date in the past — they will sit below newer ones automatically.
+          </p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Field label="Title"><Input value={editing.title} onChange={e => setEditing({ ...editing, title: e.target.value })} /></Field>
             <Field label="Date"><Input type="date" value={editing.occurred_on} onChange={e => setEditing({ ...editing, occurred_on: e.target.value })} /></Field>
-            <Field label="Link URL (optional)"><Input value={editing.link_url ?? ""} onChange={e => setEditing({ ...editing, link_url: e.target.value })} /></Field>
             <Field label="Hidden"><div className="flex h-9 items-center"><Switch checked={editing.hidden} onCheckedChange={v => setEditing({ ...editing, hidden: v })} /></div></Field>
           </div>
           <Field label="Body"><Textarea rows={5} value={editing.body ?? ""} onChange={e => setEditing({ ...editing, body: e.target.value })} /></Field>
@@ -502,13 +546,20 @@ function MilestonesTab({ section }: { section: EntrySection }) {
             urls={editing.image_urls}
             onChange={v => setEditing({ ...editing, image_urls: v })}
           />
+          <ImageUrlsField
+            kind="video"
+            label="Videos (upload a file or paste a YouTube / Vimeo link)"
+            urls={editing.video_urls}
+            onChange={v => setEditing({ ...editing, video_urls: v })}
+          />
+          <LinksField links={editing.links} onChange={v => setEditing({ ...editing, links: v })} />
           <div className="flex gap-3"><Button onClick={save}>Save</Button><Button variant="outline" onClick={() => setEditing(null)}>Cancel</Button></div>
         </div>
       )}
 
       <table className="w-full text-sm border-t border-border block overflow-x-auto whitespace-nowrap">
         <thead><tr className="text-left text-muted-foreground">
-          <th className="py-2">Date</th><th>Title</th><th>Tags</th><th>Images</th><th>Hidden</th><th></th>
+          <th className="py-2">Date</th><th>Title</th><th>Tags</th><th>Media</th><th>Hidden</th><th></th>
         </tr></thead>
         <tbody>
           {rows.map(m => (
@@ -516,10 +567,10 @@ function MilestonesTab({ section }: { section: EntrySection }) {
               <td className="py-2 num text-xs">{m.occurred_on}</td>
               <td>{m.title}</td>
               <td className="text-xs text-muted-foreground">{m.tags.join(", ")}</td>
-              <td className="num">{m.image_urls.length}</td>
+              <td className="num text-xs">{m.image_urls.length} img · {m.video_urls.length} vid · {m.links.length} link</td>
               <td>{m.hidden ? "yes" : ""}</td>
               <td className="text-right">
-                <button onClick={() => setEditing(m)} className="link-red mr-3">edit</button>
+                <button onClick={() => open(m)} className="link-red mr-3">edit</button>
                 <button onClick={() => remove(m.id!)} className="link-red">delete</button>
               </td>
             </tr>

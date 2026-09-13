@@ -6,6 +6,7 @@ import { TagFilterBar } from "@/components/alps/TagFilterBar";
 import { CATEGORY_TAGS, matchesTag } from "@/lib/categorisation";
 
 export type EntrySection = "recognitions" | "design-path";
+export type EntryLink = { label: string; url: string };
 
 type Entry = {
   id: string;
@@ -14,8 +15,16 @@ type Entry = {
   occurred_on: string;
   link_url: string | null;
   image_urls: string[];
+  video_urls: string[] | null;
+  links: EntryLink[] | null;
   tags: string[];
 };
+
+/** Older entries stored a single link_url; newer ones a list of links. */
+function entryLinks(m: Entry): EntryLink[] {
+  if (m.links?.length) return m.links;
+  return m.link_url ? [{ label: "", url: m.link_url }] : [];
+}
 
 const TAG_LABEL = Object.fromEntries(CATEGORY_TAGS.map((t) => [t.key, t.label]));
 
@@ -42,7 +51,7 @@ export function EntryFeed({
     let cancelled = false;
     supabase
       .from("milestones")
-      .select("id, title, body, occurred_on, link_url, image_urls, tags")
+      .select("*")
       .eq("section", section)
       .eq("hidden", false)
       .order("occurred_on", { ascending: false })
@@ -92,17 +101,18 @@ export function EntryFeed({
                   {m.tags.map((t) => TAG_LABEL[t] ?? t).join(" · ")}
                 </p>
               )}
-              {m.link_url && (
-                <a
-                  href={m.link_url}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="link-red mt-3 inline-flex items-center gap-1.5 text-sm"
-                >
-                  read more <ExternalLink className="h-3.5 w-3.5" />
-                </a>
+              {entryLinks(m).length > 0 && (
+                <ul className="mt-3 flex flex-wrap gap-x-5 gap-y-1">
+                  {entryLinks(m).map((l, i) => (
+                    <li key={l.url + i}>
+                      <a href={l.url} target="_blank" rel="noreferrer" className="link-red inline-flex items-center gap-1.5 text-sm">
+                        {l.label || "read more"} <ExternalLink className="h-3.5 w-3.5" />
+                      </a>
+                    </li>
+                  ))}
+                </ul>
               )}
-              <ImageGallery images={m.image_urls ?? []} alt={m.title} className="mt-5" />
+              <ImageGallery images={m.image_urls ?? []} videos={m.video_urls ?? []} alt={m.title} className="mt-5" />
             </li>
           ))}
         </ol>
