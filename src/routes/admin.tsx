@@ -14,6 +14,8 @@ import { useServerFn } from "@tanstack/react-start";
 import { listAdmins, grantAdminByEmail, revokeAdmin } from "@/lib/admin.functions";
 import { PRODUCTS } from "@/lib/alps-data";
 import { productImage } from "@/lib/accessory-images";
+import { SEASON_TAGS, DEMOGRAPHIC_TAGS } from "@/lib/categorisation";
+import type { EntrySection } from "@/components/alps/EntryFeed";
 
 export const Route = createFileRoute("/admin")({ component: AdminPage });
 
@@ -74,6 +76,7 @@ function AdminPage() {
           <TabsList className="flex flex-wrap h-auto">
             <TabsTrigger value="products">Products</TabsTrigger>
             <TabsTrigger value="recognitions">Recognitions</TabsTrigger>
+            <TabsTrigger value="design-path">Design Path</TabsTrigger>
             <TabsTrigger value="orders">Orders</TabsTrigger>
             <TabsTrigger value="customers">Customers</TabsTrigger>
             <TabsTrigger value="promos">Promo Codes</TabsTrigger>
@@ -81,7 +84,8 @@ function AdminPage() {
             <TabsTrigger value="admins">Admins</TabsTrigger>
           </TabsList>
           <TabsContent value="products"><ProductsTab /></TabsContent>
-          <TabsContent value="recognitions"><MilestonesTab /></TabsContent>
+          <TabsContent value="recognitions"><MilestonesTab section="recognitions" /></TabsContent>
+          <TabsContent value="design-path"><MilestonesTab section="design-path" /></TabsContent>
           <TabsContent value="orders"><OrdersTab /></TabsContent>
           <TabsContent value="customers"><CustomersTab /></TabsContent>
           <TabsContent value="promos"><PromosTab /></TabsContent>
@@ -297,8 +301,9 @@ function ProductEditor({ product, onChange, onSave, onCancel }:{
         <Field label="Colors (comma-sep)"><Input value={product.colors.join(", ")} onChange={e => set("colors", arr(e.target.value))} /></Field>
         <Field label="Sizes (comma-sep)"><Input value={product.sizes.join(", ")} onChange={e => set("sizes", arr(e.target.value))} /></Field>
         <Field label="Features (comma-sep)"><Input value={product.features.join(", ")} onChange={e => set("features", arr(e.target.value))} /></Field>
-        <Field label="Tags (comma-sep)"><Input value={product.tags.join(", ")} onChange={e => set("tags", arr(e.target.value))} /></Field>
+        <Field label="Other tags (comma-sep, e.g. handbag, travel)"><Input value={product.tags.filter(t => !CATEGORY_KEYS.has(t)).join(", ")} onChange={e => set("tags", [...product.tags.filter(t => CATEGORY_KEYS.has(t)), ...arr(e.target.value)])} /></Field>
       </div>
+      <TagsField tags={product.tags} onChange={v => set("tags", v)} />
       <Field label="Description"><Textarea rows={4} value={product.description ?? ""} onChange={e => set("description", e.target.value)} /></Field>
       <ImageUrlsField
         label="Gallery images (scrolls in order)"
@@ -318,7 +323,47 @@ function Field({ label, children }:{ label: string; children: React.ReactNode })
 }
 
 
+/* ----------------- SHARED: SEASON / DEMOGRAPHIC TAGS ----------------- */
+const CATEGORY_KEYS = new Set<string>([...SEASON_TAGS, ...DEMOGRAPHIC_TAGS].map(t => t.key));
+
+function TagsField({ tags, onChange }:{ tags: string[]; onChange: (v: string[]) => void }) {
+  const toggle = (key: string) =>
+    onChange(tags.includes(key) ? tags.filter(t => t !== key) : [...tags, key]);
+  const group = (label: string, options: readonly { key: string; label: string }[]) => (
+    <div>
+      <Label className="text-xs text-muted-foreground mb-1 block">{label}</Label>
+      <div className="flex flex-wrap gap-x-4 gap-y-2">
+        {options.map(o => (
+          <label key={o.key} className="flex items-center gap-1.5 text-sm cursor-pointer">
+            <input type="checkbox" checked={tags.includes(o.key)} onChange={() => toggle(o.key)} />
+            {o.label}
+          </label>
+        ))}
+      </div>
+    </div>
+  );
+  return (
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      {group("Season", SEASON_TAGS)}
+      {group("Demographic", DEMOGRAPHIC_TAGS)}
+    </div>
+  );
+}
+
 /* ----------------- SHARED: MULTI-IMAGE EDITOR ----------------- */
+const IMAGE_BUCKET = "site-images";
+
+async function uploadImage(file: File): Promise<string> {
+  const ext = file.name.split(".").pop()?.toLowerCase() || "jpg";
+  const path = `uploads/${crypto.randomUUID()}.${ext}`;
+  const { error } = await supabase.storage.from(IMAGE_BUCKET).upload(path, file, {
+    contentType: file.type || undefined,
+    cacheControl: "31536000",
+  });
+  if (error) throw error;
+  return supabase.storage.from(IMAGE_BUCKET).getPublicUrl(path).data.publicUrl;
+}
+
 function ImageUrlsField({ label, urls, onChange }:{
   label: string; urls: string[]; onChange: (v: string[]) => void;
 }) {
@@ -330,6 +375,22 @@ function ImageUrlsField({ label, urls, onChange }:{
     const next = [...urls];
     [next[i], next[j]] = [next[j], next[i]];
     onChange(next);
+  };
+
+  const [uploading, setUploading] = useState(false);
+  const onFiles = async (files: FileList | null) => {
+    if (!files?.length) return;
+    setUploading(true);
+    const added: string[] = [];
+    try {
+      for (const f of Array.from(files)) added.push(await uploadImage(f));
+      toast.success(`Uploaded ${added.length} image${added.length === 1 ? "" : "s"} — remember to Save`);
+    } catch (e: any) {
+      toast.error(e.message ?? "Upload failed");
+    } finally {
+      if (added.length) onChange([...urls.filter(u => u.trim()), ...added]);
+      setUploading(false);
+    }
   };
 
   return (
@@ -347,36 +408,53 @@ function ImageUrlsField({ label, urls, onChange }:{
             <button type="button" onClick={() => removeAt(i)} className="link-red text-xs">remove</button>
           </div>
         ))}
-        <Button type="button" variant="outline" size="sm" onClick={() => onChange([...urls, ""])}>+ Add image</Button>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button type="button" variant="outline" size="sm" disabled={uploading} asChild>
+            <label className="cursor-pointer">
+              {uploading ? "Uploading…" : "Upload images"}
+              <input type="file" accept="image/*" multiple className="sr-only" disabled={uploading}
+                onChange={e => { onFiles(e.target.files); e.target.value = ""; }} />
+            </label>
+          </Button>
+          <Button type="button" variant="ghost" size="sm" onClick={() => onChange([...urls, ""])}>+ Add by URL</Button>
+        </div>
       </div>
     </div>
   );
 }
 
-/* ----------------- RECOGNITIONS (MILESTONES) ----------------- */
+/* ----------------- RECOGNITIONS / DESIGN PATH (MILESTONES) ----------------- */
 type Milestone = {
   id?: string; title: string; body: string | null; occurred_on: string;
   link_url: string | null; image_urls: string[]; hidden: boolean;
+  section: EntrySection; tags: string[];
 };
 
-const blankMilestone = (): Milestone => ({
+const blankMilestone = (section: EntrySection): Milestone => ({
   title: "", body: "", occurred_on: new Date().toISOString().slice(0, 10),
-  link_url: "", image_urls: [], hidden: false,
+  link_url: "", image_urls: [], hidden: false, section, tags: [],
 });
 
-function MilestonesTab() {
+const SECTION_NOUN: Record<EntrySection, { one: string; many: string; page: string }> = {
+  recognitions: { one: "recognition", many: "recognitions", page: "/press" },
+  "design-path": { one: "design path entry", many: "design path entries", page: "/my-journey" },
+};
+
+function MilestonesTab({ section }: { section: EntrySection }) {
+  const noun = SECTION_NOUN[section];
   const [rows, setRows] = useState<Milestone[]>([]);
   const [editing, setEditing] = useState<Milestone | null>(null);
 
-  // Newest first — matches the public /my-journey ordering.
+  // Newest first — matches the public page ordering.
   const load = async () => {
     const { data, error } = await supabase.from("milestones").select("*")
+      .eq("section", section)
       .order("occurred_on", { ascending: false })
       .order("created_at", { ascending: false });
     if (error) return toast.error(error.message);
-    setRows((data ?? []).map((m: any) => ({ ...m, image_urls: m.image_urls ?? [] })) as Milestone[]);
+    setRows((data ?? []).map((m: any) => ({ ...m, image_urls: m.image_urls ?? [], tags: m.tags ?? [] })) as Milestone[]);
   };
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); }, [section]);
 
   const save = async () => {
     if (!editing) return;
@@ -395,7 +473,7 @@ function MilestonesTab() {
   };
 
   const remove = async (id: string) => {
-    if (!confirm("Delete this recognition?")) return;
+    if (!confirm(`Delete this ${noun.one}?`)) return;
     const { error } = await supabase.from("milestones").delete().eq("id", id);
     if (error) return toast.error(error.message);
     toast.success("Deleted"); load();
@@ -404,13 +482,13 @@ function MilestonesTab() {
   return (
     <div className="py-6 space-y-6">
       <div className="flex justify-between items-center">
-        <h2 className="text-lg">{rows.length} recognitions · newest first</h2>
-        <Button onClick={() => setEditing(blankMilestone())}>+ New Recognition</Button>
+        <h2 className="text-lg">{rows.length} {noun.many} · newest first on {noun.page}</h2>
+        <Button onClick={() => setEditing(blankMilestone(section))}>+ New {noun.one}</Button>
       </div>
 
       {editing && (
         <div className="border border-border p-6 bg-card space-y-4">
-          <h3 className="text-lg">{editing.id ? "Edit" : "New"} recognition</h3>
+          <h3 className="text-lg">{editing.id ? "Edit" : "New"} {noun.one}</h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Field label="Title"><Input value={editing.title} onChange={e => setEditing({ ...editing, title: e.target.value })} /></Field>
             <Field label="Date"><Input type="date" value={editing.occurred_on} onChange={e => setEditing({ ...editing, occurred_on: e.target.value })} /></Field>
@@ -418,6 +496,7 @@ function MilestonesTab() {
             <Field label="Hidden"><div className="flex h-9 items-center"><Switch checked={editing.hidden} onCheckedChange={v => setEditing({ ...editing, hidden: v })} /></div></Field>
           </div>
           <Field label="Body"><Textarea rows={5} value={editing.body ?? ""} onChange={e => setEditing({ ...editing, body: e.target.value })} /></Field>
+          <TagsField tags={editing.tags} onChange={v => setEditing({ ...editing, tags: v })} />
           <ImageUrlsField
             label="Gallery images (scrolls in order)"
             urls={editing.image_urls}
@@ -429,13 +508,14 @@ function MilestonesTab() {
 
       <table className="w-full text-sm border-t border-border block overflow-x-auto whitespace-nowrap">
         <thead><tr className="text-left text-muted-foreground">
-          <th className="py-2">Date</th><th>Title</th><th>Images</th><th>Hidden</th><th></th>
+          <th className="py-2">Date</th><th>Title</th><th>Tags</th><th>Images</th><th>Hidden</th><th></th>
         </tr></thead>
         <tbody>
           {rows.map(m => (
             <tr key={m.id} className="border-t border-border">
               <td className="py-2 num text-xs">{m.occurred_on}</td>
               <td>{m.title}</td>
+              <td className="text-xs text-muted-foreground">{m.tags.join(", ")}</td>
               <td className="num">{m.image_urls.length}</td>
               <td>{m.hidden ? "yes" : ""}</td>
               <td className="text-right">

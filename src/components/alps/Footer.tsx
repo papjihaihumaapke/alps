@@ -39,7 +39,7 @@ export function Footer() {
           </div>
         </Col>
 
-        <Col title="awards & accolades">
+        <Col title="recognitions">
           <div className="grid gap-1.5">
             {AWARDS.map((a, i) => (
               <span key={i} className="text-foreground/80 leading-snug">

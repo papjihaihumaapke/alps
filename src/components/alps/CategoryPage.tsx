@@ -1,16 +1,18 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, notFound } from "@tanstack/react-router";
 import { Shell } from "@/components/alps/Shell";
 import {
-  ACCESSORY_TAGS,
+  ACCESSORY_TYPE_TAGS,
   CATEGORIES,
   PRODUCTS,
   PRODUCT_COLORS,
-  type AccessoryTag,
   type CategorySlug,
 } from "@/lib/alps-data";
 import { productImage } from "@/lib/accessory-images";
 import { colorSwatch } from "@/lib/color-swatches";
+import { matchesTag } from "@/lib/categorisation";
+import { supabase } from "@/integrations/supabase/client";
+import { TagFilterBar } from "@/components/alps/TagFilterBar";
 
 type SortKey = "default" | "price-asc" | "price-desc" | "name";
 
@@ -18,13 +20,28 @@ export function CategoryView({ slug }: { slug: CategorySlug }) {
   const cat = CATEGORIES.find((c) => c.slug === slug);
   if (!cat) throw notFound();
 
-  const [activeTag, setActiveTag] = useState<"all" | AccessoryTag>("all");
+  const [activeTag, setActiveTag] = useState("all");
   const [sort, setSort] = useState<SortKey>("default");
+
+  // Tags edited in the admin panel override the built-in catalog tags.
+  const [dbTags, setDbTags] = useState<Record<string, string[]>>({});
+  useEffect(() => {
+    let cancelled = false;
+    supabase
+      .from("products")
+      .select("slug, tags")
+      .eq("category", slug)
+      .then(({ data }) => {
+        if (cancelled || !data) return;
+        setDbTags(Object.fromEntries(data.filter((r) => r.tags?.length).map((r) => [r.slug, r.tags])));
+      });
+    return () => { cancelled = true; };
+  }, [slug]);
 
   const items = useMemo(() => {
     let list = PRODUCTS.filter((p) => p.category === slug);
-    if (slug === "accessories" && activeTag !== "all") {
-      list = list.filter((p) => p.tags?.includes(activeTag));
+    if (activeTag !== "all") {
+      list = list.filter((p) => matchesTag(dbTags[p.id] ?? p.tags, activeTag));
     }
     switch (sort) {
       case "price-asc":
@@ -36,9 +53,7 @@ export function CategoryView({ slug }: { slug: CategorySlug }) {
       default:
         return list;
     }
-  }, [slug, activeTag, sort]);
-
-  const showTagBar = slug === "accessories";
+  }, [slug, activeTag, sort, dbTags]);
 
   return (
     <Shell>
@@ -63,27 +78,12 @@ export function CategoryView({ slug }: { slug: CategorySlug }) {
               </span>
             </div>
 
-            {showTagBar && (
-              <div className="flex flex-wrap justify-end gap-1.5 max-w-[760px]">
-                {ACCESSORY_TAGS.map((t) => {
-                  const active = activeTag === t.key;
-                  return (
-                    <button
-                      key={t.key}
-                      onClick={() => setActiveTag(t.key)}
-                      className={
-                        "px-3 py-1 text-[11px] tracking-wide transition-colors border " +
-                        (active
-                          ? "bg-[oklch(0.35_0.14_18)] border-[oklch(0.35_0.14_18)] text-white"
-                          : "bg-primary border-primary text-primary-foreground hover:bg-[oklch(0.35_0.14_18)] hover:border-[oklch(0.35_0.14_18)]")
-                      }
-                    >
-                      {t.label}
-                    </button>
-                  );
-                })}
-              </div>
-            )}
+            <TagFilterBar
+              active={activeTag}
+              onChange={setActiveTag}
+              extra={slug === "accessories" ? ACCESSORY_TYPE_TAGS : []}
+              className="justify-end max-w-[760px]"
+            />
           </div>
         </div>
       </section>

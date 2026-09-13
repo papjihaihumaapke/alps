@@ -41,6 +41,8 @@ export type Database = {
           image_urls: string[]
           link_url: string | null
           occurred_on: string
+          section: string
+          tags: string[]
           title: string
           updated_at: string
         }
@@ -52,6 +54,8 @@ export type Database = {
           image_urls?: string[]
           link_url?: string | null
           occurred_on?: string
+          section?: string
+          tags?: string[]
           title: string
           updated_at?: string
         }
@@ -63,6 +67,8 @@ export type Database = {
           image_urls?: string[]
           link_url?: string | null
           occurred_on?: string
+          section?: string
+          tags?: string[]
           title?: string
           updated_at?: string
         }

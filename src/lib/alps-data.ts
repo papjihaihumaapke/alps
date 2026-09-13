@@ -1,4 +1,5 @@
 import { EXTRA_PRODUCTS } from "@/lib/catalog-extra";
+import type { CategoryTag } from "@/lib/categorisation";
 
 export type CategorySlug =
   | "innovation"
@@ -61,16 +62,9 @@ export const FEATURES: { key: string; name: string; desc: string }[] = [
   { key: "vegan", name: "vegan", desc: "100% animal-free materials and processes." },
 ];
 
-export type AccessoryTag =
-  | "all-season"
-  | "fall-winter"
-  | "women"
-  | "unisex"
-  | "kids"
-  | "handbag"
-  | "home"
-  | "travel"
-  | "wearable";
+/** Accessory types, filterable on the accessories page in addition to season/demographic. */
+export type AccessoryType = "handbag" | "home" | "travel" | "wearable";
+export type AccessoryTag = CategoryTag | AccessoryType;
 
 export type Product = {
   id: string;
@@ -84,23 +78,30 @@ export type Product = {
   tags?: AccessoryTag[];
 };
 
-export const ACCESSORY_TAGS: { key: "all" | AccessoryTag; label: string }[] = [
-  { key: "all", label: "all" },
-  { key: "all-season", label: "all season" },
-  { key: "fall-winter", label: "fall/ winter" },
-  { key: "women", label: "women" },
-  { key: "unisex", label: "unisex" },
-  { key: "kids", label: "kids" },
+export const ACCESSORY_TYPE_TAGS: { key: AccessoryType; label: string }[] = [
   { key: "handbag", label: "handbag" },
   { key: "home", label: "home" },
   { key: "travel", label: "travel" },
   { key: "wearable", label: "wearable" },
 ];
 
+/**
+ * Default season/demographic tags for catalog items that ship without any, so
+ * every section can be filtered. Admin-edited tags in the database override these.
+ */
+function withDefaultTags(p: Product): Product {
+  if (p.tags?.length) return p;
+  const kids = /\bkids?\b/i.test(p.name);
+  const demographic: AccessoryTag[] =
+    kids ? ["kids"] : p.category === "personal-care" || p.category === "collaborations" ? ["unisex"] : ["women"];
+  return { ...p, tags: ["all-season", ...demographic] };
+}
+
+
 
 
 export const PRODUCTS: Product[] = [
-  ...EXTRA_PRODUCTS,
+  ...EXTRA_PRODUCTS.map(withDefaultTags),
 
 
   // accessories — wearable / women / unisex
